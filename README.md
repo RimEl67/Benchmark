@@ -2,129 +2,124 @@
 # par: Rim EL ABBASSI — Brahim EL MAJDAOUI
 
 
----
-
-## 🧩 T0 — Environnement de test
-
-| Élément | Configuration |
-|--------|--------------|
-| Matériel | Intel i7-8750H (6C/12T, 2.2–4.1 GHz) – 16 Go RAM |
-| OS | Windows 11 Pro 64-bit / Ubuntu 22.04 LTS |
-| Java | OpenJDK 21 (HotSpot VM) |
-| Docker | Docker 26.x + Compose 2.20.x |
-| Base de données | PostgreSQL 14.x |
-| Outils de test | JMeter 5.6.3 |
-| Monitoring | Prometheus 2.51 • Grafana 11 • InfluxDB 2.7 |
-| JVM | Xms=2G – Xmx=3G – G1GC |
-| HikariCP | min=10 • max=20 • timeout=30s |
+Ce dépôt présente l’étude comparative de plusieurs implémentations de services REST.  
+L’objectif est d’analyser leur performance, leur consommation de ressources, ainsi que leur comportement sous différentes charges applicatives.
 
 ---
 
-## 📈 T2 — Résultats globaux par scénario
+## 📌 1. Objectif du Benchmark
 
-### 🔹 Scénario READ-heavy (lecture + relations)
+L’étude vise à :
 
-| Mesure | Jersey (A) | RestController (C) | Spring Data REST (D) |
-|--------|------------|--------------------|-----------------------|
-| RPS | 710/s | 540/s | 420/s |
-| p50 | 18 ms | 41 ms | 60 ms |
-| p95 | 58 ms | 180 ms | 295 ms |
-| p99 | 99 ms | 420 ms | 911 ms |
-| Erreurs | 0.01% | 0% | 0.02% |
+- Comparer plusieurs approches pour exposer des API REST (frameworks, variantes Spring, etc.).
+- Mesurer leur capacité à gérer des scénarios variés : lecture intensive, jointures, écritures, payloads lourds.
+- Évaluer l’impact sur les ressources système (CPU, mémoire, threads, pool de connexions).
+- Identifier les points forts, limites et domaines d’utilisation recommandés pour chaque technologie.
 
 ---
 
-### 🔹 Scénario JOIN-filter
+## 🧩 2. Architecture et Pile Technologique
 
-| Mesure | A | C | D |
-|--------|---|---|---|
-| RPS | 255/s | 180/s | 140/s |
-| p50 | 14 ms | 23 ms | 39 ms |
-| p95 | 52 ms | 88 ms | 142 ms |
-| p99 | 65 ms | 159 ms | 298 ms |
-| Erreurs | 0% | 0.12% | 0.21% |
+Le benchmark repose sur une architecture standard composée de :
 
----
+- **Un service Web** implémenté en plusieurs variantes (par exemple Jersey, Spring MVC, Spring Data REST…).
+- **Une base de données PostgreSQL**.
+- **Un outil de test de charge** pour générer des scénarios de charge réalistes.
+- **Un système de monitoring** pour l’observation JVM et système.
 
-### 🔹 Scénario MIXED (lecture/écriture)
+### Technologies utilisées
 
-| Mesure | A | C | D |
-|--------|---|---|---|
-| RPS | 120/s | 115/s | 93/s |
-| p50 | 11 ms | 19 ms | 25 ms |
-| p95 | 42 ms | 59 ms | 120 ms |
-| p99 | 92 ms | 185 ms | 313 ms |
-| Erreurs | 0.3% | 1.1% | 2.5% |
+- **Java 21 — HotSpot VM**
+- **Spring Boot / JAX-RS (selon variante)**
+- **PostgreSQL**
+- **Docker & Docker Compose**
+- **JMeter** pour les tests de charge
+- **Prometheus + Grafana** pour le monitoring
+- **HikariCP** pour la gestion des connexions SQL
 
 ---
 
-### 🔹 Scénario HEAVY-body (payload massif)
+## 📂 3. Scénarios de Test
 
-| Mesure | A | C | D |
-|--------|---|---|---|
-| RPS | 50/s | 45/s | 32/s |
-| p50 | 45 ms | 67 ms | 90 ms |
-| p95 | 160 ms | 330 ms | 520 ms |
-| p99 | 310 ms | 770 ms | 1350 ms |
-| Erreurs | 5.2% | 6.8% | 12.3% |
+Plusieurs scénarios couvrant les usages les plus courants ont été définis :
 
----
+### 🔹 3.1. READ-heavy  
+Tests de forte sollicitation en lecture, incluant la récupération d’entités avec relations.
 
-## 📊 T3 — Statistiques JVM
+### 🔹 3.2. JOIN-filter  
+Scénarios ciblant la performance des requêtes avec filtrage + jointures SQL.
 
-| Variante | CPU moy/pic | Heap moy/pic | GC (ms/s) | Threads | Connexions Hikari |
-|----------|-------------|---------------|-----------|---------|-------------------|
-| Jersey (A) | 26 / 65 % | 143 / 255 Mo | 14 / 39 | 71 / 80 | 12 / 16 |
-| RestController (C) | 38 / 80 % | 320 / 467 Mo | 18 / 57 | 94 / 109 | 16 / 22 |
-| Spring Data REST (D) | 41 / 92 % | 362 / 718 Mo | 30 / 88 | 99 / 126 | 18 / 27 |
+### 🔹 3.3. MIXED  
+Alternance d’opérations CREATE, READ, UPDATE, DELETE, reflétant un usage applicatif réel.
+
+### 🔹 3.4. HEAVY-body  
+Tests impliquant des payloads volumineux (JSON large).
 
 ---
 
-## 🧪 T4 — Détails ENDPOINTS (JOIN-filter)
+## 📊 4. Métriques Observées
 
-| Endpoint | Var. | RPS | p95 | Erreurs | Note |
-|---------|------|-----|------|---------|-------|
-| `GET /items?categoryId=` | A | 210 | 52 ms | 0% | JOIN FETCH, pas de N+1 |
-| | C | 125 | 88 ms | 0.1% | Bonne stabilité |
-| | D | 84 | 142 ms | 0.2% | HAL + lazy → surcharge |
-| `GET /categories/{id}/items` | A | 95 | 75 ms | 0% | Full contrôle du JOIN |
-| | C | 66 | 111 ms | 0.1% | Repository classique |
-| | D | 42 | 198 ms | 0.2% | HAL génère + de charge |
+Les tests ont permis de collecter plusieurs indicateurs essentiels :
 
----
+### 🔸 Performance API
+- **Débit (RPS)** : nombre de requêtes traitées par seconde.
+- **Latences** : p50, p95, p99.
+- **Taux d’erreurs** : HTTP 4xx / 5xx.
 
-## 🔄 T5 — Exemples MIXED
+### 🔸 Ressources JVM
+- Utilisation **CPU**
+- Consommation **heap**
+- Temps **GC**
+- **Threads actifs**
+- **Connexions Hikari** utilisées
 
-| Endpoint | Variante | RPS | p95 | Err | Commentaire |
-|----------|----------|-----|-----|------|-------------|
-| GET /items | A | 42 | 39 ms | 0% | Très rapide |
-| | C | 36 | 51 ms | 0% | Stable |
-| | D | 29 | 63 ms | 0.2% | HAL volumineux |
-| POST /items | A | 10 | 179 ms | 5% | Sensible à la taille du body |
-| | C | 8 | 227 ms | 6% | Latence similaire |
-| | D | 5 | 340 ms | 10% | Plus de surcharge |
-| DELETE /items | A/C/D | <4 | <40 ms | 0% | Peu coûteux |
+### 🔸 Observation système
+- I/O disque
+- Réseau
+- Charge CPU globale
 
 ---
 
-## ⚠️ T6 — Incidents observés
+## 🧪 5. Méthodologie
 
-| Run | Variante | Erreur | % | Cause | Fix |
-|-----|----------|---------|----|--------|------|
-| MIXED | A/C/D | 400 | 4–10% | JSON trop gros | Pré-processors |
-| HEAVY | D | 400 | >10% | HAL + gros payload | Projections, pagination |
-| JOIN | D | Lazy/N+1 | <1% | Pas de JOIN FETCH | Ajuster mapping |
+Les tests suivent une méthodologie reproductible :
+
+1. **Déploiement** de chaque variante dans un environnement isolé Docker.
+2. **Préparation des données** (dataset initial).
+3. **Exécution automatisée** des scénarios JMeter.
+4. **Instrumentation** via Prometheus.
+5. **Analyse** via des dashboards Grafana dédiés.
+6. **Comparaison qualitative et quantitative** des comportements.
+
+---
+
+## 📌 6. Critères de Comparaison
+
+Chaque variante a été comparée selon :
+
+- **Performance brute** (débit et latence)
+- **Stabilité sous charge**
+- **Simplicité de développement**
+- **Facilité d’exposition des relations**
+- **Consommation CPU/RAM**
+- **Robustesse face aux payloads lourds**
+- **Risque de N+1 / lazy-loading**
 
 ---
 
-## 🏁 T7 — Conclusion & Recommandation
+## 🏁 7. Conclusion Générale (sans résultats)
 
-| Critère | Vainqueur | Justification |
-|---------|-----------|---------------|
-| Débit (RPS) | **Jersey (A)** | Architecture légère, overhead minimal |
-| Latence p95 | **Jersey (A)** | JSON plus simple, pipeline efficace |
-| Stabilité | **RestController (C)** | Bon compromis performance/erreurs |
-| Consommation ressources | **Jersey (A)** | CPU/RAM plus faibles |
-| Facilité pour exposer les relations | **Spring Data REST (D)** | HATEOAS + endpoints automatiques |
+L'étude permet :
+
+- D’identifier les approches les plus efficaces selon le type de charge applicative.
+- De comprendre où chaque technologie excelle (lecture rapide, endpoints automatisés, sérialisation, etc.).
+- D’établir une recommandation d’usage selon :
+  - le besoin en performance,
+  - la complexité des relations,
+  - la simplicité du code,
+  - et l’impact sur les ressources.
+
+Les résultats détaillés peuvent être ajoutés ultérieurement dans une section dédiée au rapport final.
 
 ---
+
