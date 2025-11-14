@@ -1,5 +1,5 @@
-# 🚀 Benchmark des API REST  
-**Auteurs : Rim EL ABBASSI — Brahim EL MAJDAOUI**
+# 🚀 Benchmark de performances des Web Services REST - par: Rim EL ABBASSI — Brahim EL MAJDAOUI
+
 
 ---
 
