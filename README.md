@@ -107,19 +107,4 @@ Chaque variante a été comparée selon :
 
 ---
 
-## 🏁 7. Conclusion Générale (sans résultats)
-
-L'étude permet :
-
-- D’identifier les approches les plus efficaces selon le type de charge applicative.
-- De comprendre où chaque technologie excelle (lecture rapide, endpoints automatisés, sérialisation, etc.).
-- D’établir une recommandation d’usage selon :
-  - le besoin en performance,
-  - la complexité des relations,
-  - la simplicité du code,
-  - et l’impact sur les ressources.
-
-Les résultats détaillés peuvent être ajoutés ultérieurement dans une section dédiée au rapport final.
-
----
 
